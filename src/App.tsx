@@ -8,6 +8,7 @@ import PreferencesPanel from "./components/PreferencesPanel";
 import HistoryRestoreBin from "./components/HistoryRestoreBin";
 import { motion, AnimatePresence } from "motion/react";
 import { Heart, Activity, PiggyBank, Smile, X, ShieldAlert, CheckCircle2, History } from "lucide-react";
+import { getSupabaseClient, isSupabaseConfigured } from "./supabaseClient";
 
 export default function App() {
   // Load initial preferences
@@ -57,58 +58,330 @@ export default function App() {
   // Control custom Settle Up confirmation modal
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
 
-  // Persist preferences
+  // Supabase trigger to restart subscriptions on credentials update
+  const [supabaseTrigger, setSupabaseTrigger] = useState(0);
+
+  // Persist preferences locally
   useEffect(() => {
     localStorage.setItem("couple_ledger_prefs", JSON.stringify(preferences));
   }, [preferences]);
 
-  // Persist transactions
+  // Persist transactions locally
   useEffect(() => {
     localStorage.setItem("couple_ledger_txs", JSON.stringify(transactions));
   }, [transactions]);
 
-  // Persist deleted transactions
+  // Persist deleted transactions locally
   useEffect(() => {
     localStorage.setItem("couple_ledger_deleted_txs", JSON.stringify(deletedTransactions));
   }, [deletedTransactions]);
 
+  // Supabase sync implementation
+  const syncWithSupabase = async () => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    try {
+      // 1. Fetch preferences
+      const { data: prefData, error: prefError } = await client
+        .from('couple_preferences')
+        .select('*')
+        .eq('id', 'default_preferences')
+        .maybeSingle();
+
+      // 2. Fetch transactions
+      const { data: txData, error: txError } = await client
+        .from('transactions')
+        .select('*');
+
+      // 3. Fetch deleted transactions
+      const { data: delTxData, error: delTxError } = await client
+        .from('deleted_transactions')
+        .select('*');
+
+      if (prefError) console.error('Error fetching preferences:', prefError);
+      if (txError) console.error('Error fetching transactions:', txError);
+      if (delTxError) console.error('Error fetching deleted transactions:', delTxError);
+
+      // --- Merge Preferences ---
+      if (prefData) {
+        setPreferences({
+          meName: prefData.me_name,
+          partnerName: prefData.partner_name,
+          currencySymbol: prefData.currency_symbol,
+          monthlyBudget: Number(prefData.monthly_budget),
+        });
+      } else {
+        await client.from('couple_preferences').upsert({
+          id: 'default_preferences',
+          me_name: preferences.meName,
+          partner_name: preferences.partnerName,
+          currency_symbol: preferences.currencySymbol,
+          monthly_budget: preferences.monthlyBudget,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // --- Merge Transactions ---
+      const cloudTxs: Transaction[] = (txData || []).map(row => ({
+        id: row.id,
+        payer: row.payer,
+        amount: Number(row.amount),
+        currency: row.currency,
+        description: row.description,
+        date: row.date,
+        is_shared: row.is_shared,
+        isSettlement: row.is_settlement,
+        category: row.category || undefined,
+        createdAt: row.created_at
+      }));
+
+      const cloudTxMap = new Map(cloudTxs.map(t => [t.id, t]));
+      const finalTxsMap = new Map<string, Transaction>();
+      
+      cloudTxs.forEach(tx => finalTxsMap.set(tx.id, tx));
+
+      const txsToUpload: any[] = [];
+      transactions.forEach(localTx => {
+        if (!cloudTxMap.has(localTx.id)) {
+          finalTxsMap.set(localTx.id, localTx);
+          txsToUpload.push({
+            id: localTx.id,
+            payer: localTx.payer,
+            amount: localTx.amount,
+            currency: localTx.currency,
+            description: localTx.description,
+            date: localTx.date,
+            is_shared: localTx.is_shared,
+            is_settlement: !!localTx.isSettlement,
+            category: localTx.category || null,
+            created_at: localTx.createdAt
+          });
+        }
+      });
+
+      if (txsToUpload.length > 0) {
+        await client.from('transactions').upsert(txsToUpload);
+      }
+
+      const finalTxsList = Array.from(finalTxsMap.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setTransactions(finalTxsList);
+
+      // --- Merge Deleted Transactions ---
+      const cloudDelTxs: Transaction[] = (delTxData || []).map(row => ({
+        id: row.id,
+        payer: row.payer,
+        amount: Number(row.amount),
+        currency: row.currency,
+        description: row.description,
+        date: row.date,
+        is_shared: row.is_shared,
+        isSettlement: row.is_settlement,
+        category: row.category || undefined,
+        createdAt: row.created_at
+      }));
+
+      const cloudDelTxMap = new Map(cloudDelTxs.map(t => [t.id, t]));
+      const finalDelTxsMap = new Map<string, Transaction>();
+
+      cloudDelTxs.forEach(tx => finalDelTxsMap.set(tx.id, tx));
+
+      const delTxsToUpload: any[] = [];
+      deletedTransactions.forEach(localDelTx => {
+        if (!cloudDelTxMap.has(localDelTx.id)) {
+          finalDelTxsMap.set(localDelTx.id, localDelTx);
+          delTxsToUpload.push({
+            id: localDelTx.id,
+            payer: localDelTx.payer,
+            amount: localDelTx.amount,
+            currency: localDelTx.currency,
+            description: localDelTx.description,
+            date: localDelTx.date,
+            is_shared: localDelTx.is_shared,
+            is_settlement: !!localDelTx.isSettlement,
+            category: localDelTx.category || null,
+            created_at: localDelTx.createdAt
+          });
+        }
+      });
+
+      if (delTxsToUpload.length > 0) {
+        await client.from('deleted_transactions').upsert(delTxsToUpload);
+      }
+
+      const finalDelTxsList = Array.from(finalDelTxsMap.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setDeletedTransactions(finalDelTxsList);
+    } catch (err) {
+      console.error('Unexpected sync error:', err);
+    }
+  };
+
+  // Realtime setup effect
+  useEffect(() => {
+    let channel: any = null;
+
+    const setupRealtime = () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+
+      // Initial Sync on connection
+      syncWithSupabase();
+
+      // Subscribe to changes on database
+      channel = client
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'transactions' },
+          () => {
+            syncWithSupabase();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'deleted_transactions' },
+          () => {
+            syncWithSupabase();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'couple_preferences' },
+          () => {
+            syncWithSupabase();
+          }
+        )
+        .subscribe();
+    };
+
+    if (isSupabaseConfigured()) {
+      setupRealtime();
+    }
+
+    return () => {
+      if (channel) {
+        const client = getSupabaseClient();
+        if (client) {
+          client.removeChannel(channel);
+        }
+      }
+    };
+  }, [supabaseTrigger]);
+
   // Add customized transaction
-  const handleAddTransaction = (newTx: Omit<Transaction, "id" | "createdAt">) => {
+  const handleAddTransaction = async (newTx: Omit<Transaction, "id" | "createdAt">) => {
     const freshTx: Transaction = {
       ...newTx,
       id: "tx-" + Math.random().toString(36).substring(2, 9),
       createdAt: new Date().toISOString(),
     };
     setTransactions((prev) => [freshTx, ...prev]);
+
+    const client = getSupabaseClient();
+    if (client) {
+      const { error } = await client.from('transactions').insert({
+        id: freshTx.id,
+        payer: freshTx.payer,
+        amount: freshTx.amount,
+        currency: freshTx.currency,
+        description: freshTx.description,
+        date: freshTx.date,
+        is_shared: freshTx.is_shared,
+        is_settlement: !!freshTx.isSettlement,
+        category: freshTx.category || null,
+        created_at: freshTx.createdAt
+      });
+      if (error) console.error('Error inserting transaction:', error);
+    }
   };
 
   // Delete transaction & backup to restore bin
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
     const target = transactions.find((tx) => tx.id === id);
     if (target) {
       setDeletedTransactions((prev) => [target, ...prev].slice(0, 20));
     }
     setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+
+    const client = getSupabaseClient();
+    if (client && target) {
+      // Remove from transactions
+      const { error: delError } = await client.from('transactions').delete().eq('id', id);
+      if (delError) console.error('Error deleting transaction:', delError);
+
+      // Insert into deleted_transactions
+      const { error: insError } = await client.from('deleted_transactions').insert({
+        id: target.id,
+        payer: target.payer,
+        amount: target.amount,
+        currency: target.currency,
+        description: target.description,
+        date: target.date,
+        is_shared: target.is_shared,
+        is_settlement: !!target.isSettlement,
+        category: target.category || null,
+        created_at: target.createdAt
+      });
+      if (insError) console.error('Error inserting deleted transaction:', insError);
+    }
   };
 
   // Restore transaction from bin back to list
-  const handleRestoreTransaction = (id: string) => {
+  const handleRestoreTransaction = async (id: string) => {
     const target = deletedTransactions.find((tx) => tx.id === id);
     if (target) {
       setTransactions((prev) => [target, ...prev]);
       setDeletedTransactions((prev) => prev.filter((tx) => tx.id !== id));
+
+      const client = getSupabaseClient();
+      if (client && target) {
+        // Remove from deleted_transactions
+        const { error: delError } = await client.from('deleted_transactions').delete().eq('id', id);
+        if (delError) console.error('Error deleting from deleted_transactions:', delError);
+
+        // Insert back to transactions
+        const { error: insError } = await client.from('transactions').insert({
+          id: target.id,
+          payer: target.payer,
+          amount: target.amount,
+          currency: target.currency,
+          description: target.description,
+          date: target.date,
+          is_shared: target.is_shared,
+          is_settlement: !!target.isSettlement,
+          category: target.category || null,
+          created_at: target.createdAt
+        });
+        if (insError) console.error('Error restoring transaction:', insError);
+      }
     }
   };
 
   // Clear recycle bin
-  const handleClearDeleted = () => {
+  const handleClearDeleted = async () => {
     setDeletedTransactions([]);
+
+    const client = getSupabaseClient();
+    if (client) {
+      const { error } = await client.from('deleted_transactions').delete().neq('id', 'dummy_nonexistent');
+      if (error) console.error('Error clearing deleted_transactions:', error);
+    }
   };
 
   // Clear all/Reset Ledger
-  const handleResetLedger = () => {
+  const handleResetLedger = async () => {
     if (window.confirm("确定要清空全部记账账目和明细吗？此操作无法撤销。")) {
       setTransactions([]);
+
+      const client = getSupabaseClient();
+      if (client) {
+        const { error } = await client.from('transactions').delete().neq('id', 'dummy_nonexistent');
+        if (error) console.error('Error resetting transactions:', error);
+      }
     }
   };
 
@@ -134,6 +407,24 @@ export default function App() {
     
     // Close confirmation modal
     setShowSettleConfirm(false);
+  };
+
+  // Update preferences & sync to Cloud
+  const handleUpdatePreferences = async (updated: CouplePreferences) => {
+    setPreferences(updated);
+
+    const client = getSupabaseClient();
+    if (client) {
+      const { error } = await client.from('couple_preferences').upsert({
+        id: 'default_preferences',
+        me_name: updated.meName,
+        partner_name: updated.partnerName,
+        currency_symbol: updated.currencySymbol,
+        monthly_budget: updated.monthlyBudget,
+        updated_at: new Date().toISOString()
+      });
+      if (error) console.error('Error updating preferences in Supabase:', error);
+    }
   };
 
   // Budget calculations
@@ -261,7 +552,8 @@ export default function App() {
             {/* Profiles panel */}
             <PreferencesPanel
               preferences={preferences}
-              onUpdatePreferences={setPreferences}
+              onUpdatePreferences={handleUpdatePreferences}
+              onSupabaseConfigChange={() => setSupabaseTrigger((prev) => prev + 1)}
             />
 
             {/* Informational card */}
