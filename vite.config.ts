@@ -5,9 +5,7 @@ import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
-  const isGithubPages = process.env.GITHUB_ACTIONS === 'true';
   return {
-    base: isGithubPages ? '/-/' : '/',
     plugins: [
       react(),
       tailwindcss(),
