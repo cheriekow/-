@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #FDFCFB;
+  color: #1A1A1A;
+  font-family: var(--font-sans);
+}
+
+/* Custom Neo-Brutalist Bento Grid components */
+.bento-card-brutalist {
+  background-color: #ffffff;
+  border: 2px solid #1A1A1A;
+  border-radius: 28px;
+  box-shadow: 6px 6px 0px 0px #1A1A1A;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bento-card-brutalist:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px #1A1A1A;
+}
+
+.bento-card-fill-peach {
+  background-color: #FF6B6B;
+  color: #ffffff;
+  border: 2px solid #1A1A1A;
+  border-radius: 28px;
+  box-shadow: 6px 6px 0px 0px rgba(255,107,107,0.3);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bento-card-fill-peach:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px rgba(255,107,107,0.4);
+}
+
+.bento-card-fill-dark {
+  background-color: #1A1A1A;
+  color: #ffffff;
+  border: 2px solid #1A1A1A;
+  border-radius: 28px;
+  box-shadow: 6px 6px 0px 0px rgba(0,0,0,0.15);
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bento-card-fill-dark:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px 0px rgba(0,0,0,0.25);
+}
+
+.bento-card-gray {
+  background-color: #F1F3F5;
+  border: 1px solid #E2E8F0;
+  border-radius: 28px;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bento-card-gray:hover {
+  border-color: #cbd5e1;
+}
+
+/* Custom interactive active state indicators */
+.active-ai-badge {
+  background-color: #d1fae5;
+  color: #065f46;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}

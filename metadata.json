@@ -1,0 +1,6 @@
+{
+  "name": "喵汪小金库",
+  "description": "专为情侣设计的智能记账助手！支持零门槛自然语言记账、分账关系图、50/50智能平摊计算与收支明细。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
