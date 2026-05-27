@@ -34,6 +34,16 @@ export function isSupabaseConfigured(): boolean {
   return getSupabaseConfig() !== null;
 }
 
+function sanitizeUrl(url: string): string {
+  let clean = url.trim();
+  if (clean.endsWith('/rest/v1/')) {
+    clean = clean.slice(0, -9);
+  } else if (clean.endsWith('/rest/v1')) {
+    clean = clean.slice(0, -8);
+  }
+  return clean;
+}
+
 /**
  * Returns the active Supabase client. If it doesn't exist but a config exists, it creates it.
  */
@@ -48,7 +58,7 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 
   try {
-    activeClient = createClient(config.url, config.anonKey, {
+    activeClient = createClient(sanitizeUrl(config.url), config.anonKey, {
       auth: {
         persistSession: false // We do not need user auth sessions since we are using anon public key directly
       }
@@ -88,7 +98,7 @@ export async function testSupabaseConnection(url?: string, anonKey?: string): Pr
 
   if (url && anonKey) {
     try {
-      clientToTest = createClient(url.trim(), anonKey.trim(), {
+      clientToTest = createClient(sanitizeUrl(url), anonKey.trim(), {
         auth: { persistSession: false }
       });
     } catch {
