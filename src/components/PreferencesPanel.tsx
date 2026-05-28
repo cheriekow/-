@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, MouseEvent } from "react";
 import { CouplePreferences } from "../types";
 import { Settings, Save, Sparkles, Heart, Cloud, RefreshCw, CheckCircle2, XCircle, LogOut } from "lucide-react";
 import {
@@ -11,16 +11,36 @@ import {
 
 interface PreferencesPanelProps {
   preferences: CouplePreferences;
+  currentUserRole: "user_a" | "user_b";
+  onUserRoleChange: (role: "user_a" | "user_b") => void;
+  userAName: string;
+  userBName: string;
   onUpdatePreferences: (updated: CouplePreferences) => void;
   onSupabaseConfigChange: () => void;
 }
 
-export default function PreferencesPanel({ preferences, onUpdatePreferences, onSupabaseConfigChange }: PreferencesPanelProps) {
+export default function PreferencesPanel({
+  preferences,
+  currentUserRole,
+  onUserRoleChange,
+  userAName,
+  userBName,
+  onUpdatePreferences,
+  onSupabaseConfigChange
+}: PreferencesPanelProps) {
   const [meName, setMeName] = useState(preferences.meName);
   const [partnerName, setPartnerName] = useState(preferences.partnerName);
   const [currencySymbol, setCurrencySymbol] = useState(preferences.currencySymbol);
   const [monthlyBudget, setMonthlyBudget] = useState(preferences.monthlyBudget.toString());
   const [isSaved, setIsSaved] = useState(false);
+
+  // Sync component states when prop preferences changes
+  useEffect(() => {
+    setMeName(preferences.meName);
+    setPartnerName(preferences.partnerName);
+    setCurrencySymbol(preferences.currencySymbol);
+    setMonthlyBudget(preferences.monthlyBudget.toString());
+  }, [preferences]);
 
   // Supabase states
   const [supabaseUrl, setSupabaseUrl] = useState(() => getSupabaseConfig()?.url || "");
@@ -52,7 +72,7 @@ export default function PreferencesPanel({ preferences, onUpdatePreferences, onS
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  const handleConnect = async (e: React.MouseEvent) => {
+  const handleConnect = async (e: MouseEvent) => {
     e.preventDefault();
     if (!supabaseUrl.trim() || !supabaseKey.trim()) {
       setTestError("请输入 Supabase URL 和 Anon Key");
@@ -74,7 +94,7 @@ export default function PreferencesPanel({ preferences, onUpdatePreferences, onS
     }
   };
 
-  const handleDisconnect = (e: React.MouseEvent) => {
+  const handleDisconnect = (e: MouseEvent) => {
     e.preventDefault();
     clearSupabaseConfig();
     setSupabaseUrl("");
@@ -99,6 +119,39 @@ export default function PreferencesPanel({ preferences, onUpdatePreferences, onS
         </h3>
 
         <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+          {/* Identity Selection */}
+          <div className="space-y-2 pb-4 border-b border-zinc-100">
+            <label className="text-[11px] font-mono font-black text-zinc-400 block uppercase">我的浏览器角色 / Active Identity</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => onUserRoleChange("user_a")}
+                className={`py-3 px-3 font-black text-xs rounded-xl border-2 border-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  currentUserRole === "user_a"
+                    ? "bg-amber-300 text-[#1A1A1A] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] translate-y-[1px]"
+                    : "bg-white hover:bg-zinc-50 text-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-1px]"
+                }`}
+              >
+                <div className="w-3.5 h-3.5 rounded-full bg-amber-300 border border-black flex items-center justify-center text-[8px] font-black">A</div>
+                <span>我是：{userAName}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onUserRoleChange("user_b")}
+                className={`py-3 px-3 font-black text-xs rounded-xl border-2 border-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  currentUserRole === "user_b"
+                    ? "bg-[#4D96FF] text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] translate-y-[1px]"
+                    : "bg-white hover:bg-zinc-50 text-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-1px]"
+                }`}
+              >
+                <div className="w-3.5 h-3.5 rounded-full bg-white border border-black flex items-center justify-center text-[8px] font-black text-black">B</div>
+                <span>我是：{userBName}</span>
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-400 font-bold leading-normal">
+              💡 情侣二人在各自手机/浏览器上分别选择不同的角色，即可使账本数据“我”与“对方”正确对称。
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-mono font-black text-zinc-400 block uppercase">我的昵称</label>

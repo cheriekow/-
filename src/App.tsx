@@ -11,23 +11,55 @@ import { Heart, Activity, PiggyBank, Smile, X, ShieldAlert, CheckCircle2, Histor
 import { getSupabaseClient, isSupabaseConfigured } from "./supabaseClient";
 
 export default function App() {
-  // Load initial preferences
-  const [preferences, setPreferences] = useState<CouplePreferences>(() => {
+  // Load individual preferences & role
+  const [userAName, setUserAName] = useState(() => localStorage.getItem("couple_ledger_user_a_name") || "Mike");
+  const [userBName, setUserBName] = useState(() => localStorage.getItem("couple_ledger_user_b_name") || "Sofi");
+  const [currentUserRole, setCurrentUserRole] = useState<"user_a" | "user_b">(() => {
+    const saved = localStorage.getItem("couple_ledger_user_role");
+    return (saved === "user_a" || saved === "user_b") ? saved : "user_a";
+  });
+  const [currencySymbol, setCurrencySymbol] = useState(() => localStorage.getItem("couple_ledger_currency") || "RM");
+  const [monthlyBudget, setMonthlyBudget] = useState(() => {
+    const saved = localStorage.getItem("couple_ledger_budget");
+    return saved ? Number(saved) : 2000;
+  });
+
+  // Derive preferences object
+  const preferences: CouplePreferences = {
+    meName: currentUserRole === "user_a" ? userAName : userBName,
+    partnerName: currentUserRole === "user_a" ? userBName : userAName,
+    currencySymbol,
+    monthlyBudget,
+  };
+
+  // Migration from legacy couple_ledger_prefs if exists
+  useEffect(() => {
     const saved = localStorage.getItem("couple_ledger_prefs");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed.meName && !localStorage.getItem("couple_ledger_user_a_name")) {
+          setUserAName(parsed.meName);
+          localStorage.setItem("couple_ledger_user_a_name", parsed.meName);
+        }
+        if (parsed.partnerName && !localStorage.getItem("couple_ledger_user_b_name")) {
+          setUserBName(parsed.partnerName);
+          localStorage.setItem("couple_ledger_user_b_name", parsed.partnerName);
+        }
+        if (parsed.currencySymbol && !localStorage.getItem("couple_ledger_currency")) {
+          setCurrencySymbol(parsed.currencySymbol);
+          localStorage.setItem("couple_ledger_currency", parsed.currencySymbol);
+        }
+        if (parsed.monthlyBudget && !localStorage.getItem("couple_ledger_budget")) {
+          setMonthlyBudget(parsed.monthlyBudget);
+          localStorage.setItem("couple_ledger_budget", parsed.monthlyBudget.toString());
+        }
+        localStorage.removeItem("couple_ledger_prefs");
       } catch (e) {
         // ignore
       }
     }
-    return {
-      meName: "Mike",
-      partnerName: "Sofi",
-      currencySymbol: "RM",
-      monthlyBudget: 2000,
-    };
-  });
+  }, []);
 
   // Load initial transactions
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
@@ -63,8 +95,24 @@ export default function App() {
 
   // Persist preferences locally
   useEffect(() => {
-    localStorage.setItem("couple_ledger_prefs", JSON.stringify(preferences));
-  }, [preferences]);
+    localStorage.setItem("couple_ledger_user_a_name", userAName);
+  }, [userAName]);
+
+  useEffect(() => {
+    localStorage.setItem("couple_ledger_user_b_name", userBName);
+  }, [userBName]);
+
+  useEffect(() => {
+    localStorage.setItem("couple_ledger_user_role", currentUserRole);
+  }, [currentUserRole]);
+
+  useEffect(() => {
+    localStorage.setItem("couple_ledger_currency", currencySymbol);
+  }, [currencySymbol]);
+
+  useEffect(() => {
+    localStorage.setItem("couple_ledger_budget", monthlyBudget.toString());
+  }, [monthlyBudget]);
 
   // Persist transactions locally
   useEffect(() => {
@@ -77,7 +125,7 @@ export default function App() {
   }, [deletedTransactions]);
 
   // Supabase sync implementation
-  const syncWithSupabase = async () => {
+  const syncWithSupabase = async (forceUploadLocal = false) => {
     const client = getSupabaseClient();
     if (!client) return;
 
@@ -103,51 +151,88 @@ export default function App() {
       if (txError) console.error('Error fetching transactions:', txError);
       if (delTxError) console.error('Error fetching deleted transactions:', delTxError);
 
-      // --- Merge Preferences ---
+      // --- Sync Preferences ---
       if (prefData) {
-        setPreferences({
-          meName: prefData.me_name,
-          partnerName: prefData.partner_name,
-          currencySymbol: prefData.currency_symbol,
-          monthlyBudget: Number(prefData.monthly_budget),
-        });
+        setUserAName(prefData.me_name || "Mike");
+        setUserBName(prefData.partner_name || "Sofi");
+        setCurrencySymbol(prefData.currency_symbol || "RM");
+        setMonthlyBudget(Number(prefData.monthly_budget) || 2000);
       } else {
         await client.from('couple_preferences').upsert({
           id: 'default_preferences',
-          me_name: preferences.meName,
-          partner_name: preferences.partnerName,
-          currency_symbol: preferences.currencySymbol,
-          monthly_budget: preferences.monthlyBudget,
+          me_name: userAName,
+          partner_name: userBName,
+          currency_symbol: currencySymbol,
+          monthly_budget: monthlyBudget,
           updated_at: new Date().toISOString()
         });
       }
 
-      // --- Merge Transactions ---
-      const cloudTxs: Transaction[] = (txData || []).map(row => ({
-        id: row.id,
-        payer: row.payer,
-        amount: Number(row.amount),
-        currency: row.currency,
-        description: row.description,
-        date: row.date,
-        is_shared: row.is_shared,
-        isSettlement: row.is_settlement,
-        category: row.category || undefined,
-        createdAt: row.created_at
-      }));
+      // --- Sync Transactions ---
+      const hasCloudTxs = txData && txData.length > 0;
+      const hasCloudDelTxs = delTxData && delTxData.length > 0;
+      const cloudHasData = hasCloudTxs || hasCloudDelTxs;
 
-      const cloudTxMap = new Map(cloudTxs.map(t => [t.id, t]));
-      const finalTxsMap = new Map<string, Transaction>();
-      
-      cloudTxs.forEach(tx => finalTxsMap.set(tx.id, tx));
+      if (cloudHasData && !forceUploadLocal) {
+        const mappedTxs: Transaction[] = (txData || []).map(row => {
+          let mappedPayer: "me" | "partner" = "me";
+          if (row.payer === "user_a") {
+            mappedPayer = currentUserRole === "user_a" ? "me" : "partner";
+          } else if (row.payer === "user_b") {
+            mappedPayer = currentUserRole === "user_a" ? "partner" : "me";
+          } else {
+            mappedPayer = row.payer === "me" ? "me" : "partner";
+          }
+          return {
+            id: row.id,
+            payer: mappedPayer,
+            amount: Number(row.amount),
+            currency: row.currency,
+            description: row.description,
+            date: row.date,
+            is_shared: row.is_shared,
+            isSettlement: row.is_settlement,
+            category: row.category || undefined,
+            createdAt: row.created_at
+          };
+        });
 
-      const txsToUpload: any[] = [];
-      transactions.forEach(localTx => {
-        if (!cloudTxMap.has(localTx.id)) {
-          finalTxsMap.set(localTx.id, localTx);
-          txsToUpload.push({
+        const mappedDelTxs: Transaction[] = (delTxData || []).map(row => {
+          let mappedPayer: "me" | "partner" = "me";
+          if (row.payer === "user_a") {
+            mappedPayer = currentUserRole === "user_a" ? "me" : "partner";
+          } else if (row.payer === "user_b") {
+            mappedPayer = currentUserRole === "user_a" ? "partner" : "me";
+          } else {
+            mappedPayer = row.payer === "me" ? "me" : "partner";
+          }
+          return {
+            id: row.id,
+            payer: mappedPayer,
+            amount: Number(row.amount),
+            currency: row.currency,
+            description: row.description,
+            date: row.date,
+            is_shared: row.is_shared,
+            isSettlement: row.is_settlement,
+            category: row.category || undefined,
+            createdAt: row.created_at
+          };
+        });
+
+        setTransactions(mappedTxs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setDeletedTransactions(mappedDelTxs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      } else {
+        const txsToUpload = transactions.map(localTx => {
+          let dbPayer = "user_a";
+          if (localTx.payer === "me") {
+            dbPayer = currentUserRole === "user_a" ? "user_a" : "user_b";
+          } else {
+            dbPayer = currentUserRole === "user_a" ? "user_b" : "user_a";
+          }
+          return {
             id: localTx.id,
-            payer: localTx.payer,
+            payer: dbPayer,
             amount: localTx.amount,
             currency: localTx.currency,
             description: localTx.description,
@@ -156,45 +241,19 @@ export default function App() {
             is_settlement: !!localTx.isSettlement,
             category: localTx.category || null,
             created_at: localTx.createdAt
-          });
-        }
-      });
+          };
+        });
 
-      if (txsToUpload.length > 0) {
-        await client.from('transactions').upsert(txsToUpload);
-      }
-
-      const finalTxsList = Array.from(finalTxsMap.values()).sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setTransactions(finalTxsList);
-
-      // --- Merge Deleted Transactions ---
-      const cloudDelTxs: Transaction[] = (delTxData || []).map(row => ({
-        id: row.id,
-        payer: row.payer,
-        amount: Number(row.amount),
-        currency: row.currency,
-        description: row.description,
-        date: row.date,
-        is_shared: row.is_shared,
-        isSettlement: row.is_settlement,
-        category: row.category || undefined,
-        createdAt: row.created_at
-      }));
-
-      const cloudDelTxMap = new Map(cloudDelTxs.map(t => [t.id, t]));
-      const finalDelTxsMap = new Map<string, Transaction>();
-
-      cloudDelTxs.forEach(tx => finalDelTxsMap.set(tx.id, tx));
-
-      const delTxsToUpload: any[] = [];
-      deletedTransactions.forEach(localDelTx => {
-        if (!cloudDelTxMap.has(localDelTx.id)) {
-          finalDelTxsMap.set(localDelTx.id, localDelTx);
-          delTxsToUpload.push({
+        const delTxsToUpload = deletedTransactions.map(localDelTx => {
+          let dbPayer = "user_a";
+          if (localDelTx.payer === "me") {
+            dbPayer = currentUserRole === "user_a" ? "user_a" : "user_b";
+          } else {
+            dbPayer = currentUserRole === "user_a" ? "user_b" : "user_a";
+          }
+          return {
             id: localDelTx.id,
-            payer: localDelTx.payer,
+            payer: dbPayer,
             amount: localDelTx.amount,
             currency: localDelTx.currency,
             description: localDelTx.description,
@@ -203,18 +262,16 @@ export default function App() {
             is_settlement: !!localDelTx.isSettlement,
             category: localDelTx.category || null,
             created_at: localDelTx.createdAt
-          });
+          };
+        });
+
+        if (txsToUpload.length > 0) {
+          await client.from('transactions').upsert(txsToUpload);
         }
-      });
-
-      if (delTxsToUpload.length > 0) {
-        await client.from('deleted_transactions').upsert(delTxsToUpload);
+        if (delTxsToUpload.length > 0) {
+          await client.from('deleted_transactions').upsert(delTxsToUpload);
+        }
       }
-
-      const finalDelTxsList = Array.from(finalDelTxsMap.values()).sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setDeletedTransactions(finalDelTxsList);
     } catch (err) {
       console.error('Unexpected sync error:', err);
     }
@@ -270,7 +327,7 @@ export default function App() {
         }
       }
     };
-  }, [supabaseTrigger]);
+  }, [supabaseTrigger, currentUserRole]);
 
   // Add customized transaction
   const handleAddTransaction = async (newTx: Omit<Transaction, "id" | "createdAt">) => {
@@ -283,9 +340,16 @@ export default function App() {
 
     const client = getSupabaseClient();
     if (client) {
+      let dbPayer = "user_a";
+      if (freshTx.payer === "me") {
+        dbPayer = currentUserRole === "user_a" ? "user_a" : "user_b";
+      } else {
+        dbPayer = currentUserRole === "user_a" ? "user_b" : "user_a";
+      }
+
       const { error } = await client.from('transactions').insert({
         id: freshTx.id,
-        payer: freshTx.payer,
+        payer: dbPayer,
         amount: freshTx.amount,
         currency: freshTx.currency,
         description: freshTx.description,
@@ -313,10 +377,17 @@ export default function App() {
       const { error: delError } = await client.from('transactions').delete().eq('id', id);
       if (delError) console.error('Error deleting transaction:', delError);
 
+      let dbPayer = "user_a";
+      if (target.payer === "me") {
+        dbPayer = currentUserRole === "user_a" ? "user_a" : "user_b";
+      } else {
+        dbPayer = currentUserRole === "user_a" ? "user_b" : "user_a";
+      }
+
       // Insert into deleted_transactions
       const { error: insError } = await client.from('deleted_transactions').insert({
         id: target.id,
-        payer: target.payer,
+        payer: dbPayer,
         amount: target.amount,
         currency: target.currency,
         description: target.description,
@@ -343,10 +414,17 @@ export default function App() {
         const { error: delError } = await client.from('deleted_transactions').delete().eq('id', id);
         if (delError) console.error('Error deleting from deleted_transactions:', delError);
 
+        let dbPayer = "user_a";
+        if (target.payer === "me") {
+          dbPayer = currentUserRole === "user_a" ? "user_a" : "user_b";
+        } else {
+          dbPayer = currentUserRole === "user_a" ? "user_b" : "user_a";
+        }
+
         // Insert back to transactions
         const { error: insError } = await client.from('transactions').insert({
           id: target.id,
-          payer: target.payer,
+          payer: dbPayer,
           amount: target.amount,
           currency: target.currency,
           description: target.description,
@@ -411,14 +489,27 @@ export default function App() {
 
   // Update preferences & sync to Cloud
   const handleUpdatePreferences = async (updated: CouplePreferences) => {
-    setPreferences(updated);
+    let nextUserAName = userAName;
+    let nextUserBName = userBName;
+    if (currentUserRole === "user_a") {
+      nextUserAName = updated.meName;
+      nextUserBName = updated.partnerName;
+    } else {
+      nextUserBName = updated.meName;
+      nextUserAName = updated.partnerName;
+    }
+
+    setUserAName(nextUserAName);
+    setUserBName(nextUserBName);
+    setCurrencySymbol(updated.currencySymbol);
+    setMonthlyBudget(updated.monthlyBudget);
 
     const client = getSupabaseClient();
     if (client) {
       const { error } = await client.from('couple_preferences').upsert({
         id: 'default_preferences',
-        me_name: updated.meName,
-        partner_name: updated.partnerName,
+        me_name: nextUserAName,
+        partner_name: nextUserBName,
         currency_symbol: updated.currencySymbol,
         monthly_budget: updated.monthlyBudget,
         updated_at: new Date().toISOString()
@@ -552,6 +643,10 @@ export default function App() {
             {/* Profiles panel */}
             <PreferencesPanel
               preferences={preferences}
+              currentUserRole={currentUserRole}
+              onUserRoleChange={setCurrentUserRole}
+              userAName={userAName}
+              userBName={userBName}
               onUpdatePreferences={handleUpdatePreferences}
               onSupabaseConfigChange={() => setSupabaseTrigger((prev) => prev + 1)}
             />
