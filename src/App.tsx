@@ -664,7 +664,7 @@ export default function App() {
                 />
                 <button
                   onClick={() => setActiveTab('history')}
-                  className="w-full py-4 bg-white border-3 border-black rounded-2xl font-black text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="hidden md:flex w-full py-4 bg-white border-3 border-black rounded-2xl font-black text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all items-center justify-center gap-2 cursor-pointer"
                 >
                   <List className="w-4 h-4" />
                   查看全部历史记录
