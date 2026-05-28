@@ -33,7 +33,17 @@ export default function PreferencesPanel({
     setMonthlyBudget(preferences.monthlyBudget.toString());
   }, [preferences]);
 
-
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onUpdatePreferences({
+      meName: meName.trim() || "我",
+      partnerName: partnerName.trim() || "另一半",
+      currencySymbol: currencySymbol.trim() || "RM",
+      monthlyBudget: parseFloat(monthlyBudget) || 1000,
+    });
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
 
   return (
     <>
