@@ -45,6 +45,7 @@ export default function PreferencesPanel({
     setTimeout(() => setIsSaved(false), 2000);
   };
 
+  return (
     <>
       {/* 1. Account Settings Form */}
       <div className="relative">
