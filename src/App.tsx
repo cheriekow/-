@@ -757,18 +757,18 @@ export default function App() {
 
       {/* Mobile Bottom Nav */}
       <div 
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-black z-50 flex justify-around p-2 shadow-[0px_-4px_0px_0px_rgba(0,0,0,0.05)]"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-black z-50 flex justify-around pt-1.5 px-2 pb-1 shadow-[0px_-4px_0px_0px_rgba(0,0,0,0.05)]"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)' }}
       >
-        <button onClick={() => setActiveTab('home')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'home' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+        <button onClick={() => setActiveTab('home')} className={`flex-1 flex flex-col items-center justify-center py-0.5 gap-0.5 rounded-xl transition-all ${activeTab === 'home' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
           <Home className={`w-5 h-5 ${activeTab === 'home' ? 'fill-zinc-900' : ''}`} />
           <span className="text-[10px]">首页</span>
         </button>
-        <button onClick={() => setActiveTab('history')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'history' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+        <button onClick={() => setActiveTab('history')} className={`flex-1 flex flex-col items-center justify-center py-0.5 gap-0.5 rounded-xl transition-all ${activeTab === 'history' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
           <List className={`w-5 h-5 ${activeTab === 'history' ? 'stroke-[3px]' : ''}`} />
           <span className="text-[10px]">历史</span>
         </button>
-        <button onClick={() => setActiveTab('settings')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'settings' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+        <button onClick={() => setActiveTab('settings')} className={`flex-1 flex flex-col items-center justify-center py-0.5 gap-0.5 rounded-xl transition-all ${activeTab === 'settings' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
           <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'stroke-[3px]' : ''}`} />
           <span className="text-[10px]">设置</span>
         </button>
