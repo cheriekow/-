@@ -745,7 +745,7 @@ export default function App() {
 
         {/* Footer info - Hidden on mobile, visible on desktop */}
         <footer className="hidden md:flex pt-10 pb-8 border-t border-zinc-200 flex-col sm:flex-row sm:items-center sm:justify-between text-zinc-400 gap-4">
-          <p className="text-xs uppercase font-extrabold tracking-widest">© DuoLedger Smart Love-Finance Engine v1.02</p>
+          <p className="text-xs uppercase font-extrabold tracking-widest">© 2026 Wesley & Cherie. All rights reserved.</p>
           <div className="flex gap-1.5">
             <div className="h-1.5 w-8 bg-zinc-900 rounded-full"></div>
             <div className="h-1.5 w-4 bg-zinc-350 rounded-full"></div>
