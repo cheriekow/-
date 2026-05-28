@@ -90,8 +90,6 @@ export default function App() {
   // Control custom Settle Up confirmation modal
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
 
-  // Supabase trigger to restart subscriptions on credentials update
-  const [supabaseTrigger, setSupabaseTrigger] = useState(0);
 
   // Persist preferences locally
   useEffect(() => {
@@ -327,7 +325,7 @@ export default function App() {
         }
       }
     };
-  }, [supabaseTrigger, currentUserRole]);
+  }, [currentUserRole]);
 
   // Add customized transaction
   const handleAddTransaction = async (newTx: Omit<Transaction, "id" | "createdAt">) => {
@@ -651,7 +649,6 @@ export default function App() {
               userAName={userAName}
               userBName={userBName}
               onUpdatePreferences={handleUpdatePreferences}
-              onSupabaseConfigChange={() => setSupabaseTrigger((prev) => prev + 1)}
             />
 
             {/* Informational card */}
