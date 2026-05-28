@@ -756,7 +756,10 @@ export default function App() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-black z-50 flex justify-around p-2 pb-[env(safe-area-inset-bottom,0.5rem)] shadow-[0px_-4px_0px_0px_rgba(0,0,0,0.05)]">
+      <div 
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-black z-50 flex justify-around p-2 shadow-[0px_-4px_0px_0px_rgba(0,0,0,0.05)]"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
         <button onClick={() => setActiveTab('home')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'home' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
           <Home className={`w-5 h-5 ${activeTab === 'home' ? 'fill-zinc-900' : ''}`} />
           <span className="text-[10px]">首页</span>
