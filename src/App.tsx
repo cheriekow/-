@@ -359,7 +359,10 @@ export default function App() {
         category: freshTx.category || null,
         created_at: freshTx.createdAt
       });
-      if (error) console.error('Error inserting transaction:', error);
+      if (error) {
+        console.error('Error inserting transaction:', error);
+        alert(`同步到云端失败 (Insert Error): ${error.message}\n请检查您的 Supabase 数据库 transactions 表是否完整包含了所有字段 (比如 currency, date 等)！`);
+      }
     }
   };
 
