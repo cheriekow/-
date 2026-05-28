@@ -7,8 +7,35 @@ import ManualInput from "./components/ManualInput";
 import PreferencesPanel from "./components/PreferencesPanel";
 import HistoryRestoreBin from "./components/HistoryRestoreBin";
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Activity, PiggyBank, Smile, X, ShieldAlert, CheckCircle2, History } from "lucide-react";
+import { Heart, Activity, PiggyBank, Smile, X, ShieldAlert, CheckCircle2, History, Home, List, Settings, Trash2 } from "lucide-react";
 import { getSupabaseClient, isSupabaseConfigured } from "./supabaseClient";
+
+function AccordionCard({ title, icon: Icon, children, defaultOpen = false }: { title: string, icon: any, children: React.ReactNode, defaultOpen?: boolean }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-white border-4 border-black rounded-3xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all overflow-hidden mb-6">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-5 sm:p-6 bg-white hover:bg-zinc-50 focus:outline-none cursor-pointer"
+      >
+        <h3 className="text-lg font-black text-[#1A1A1A] flex items-center gap-2">
+          {Icon && <Icon className="w-5 h-5 text-[#FF6B6B]" />}
+          {title}
+        </h3>
+        <div className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+          <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1 1L7 7L13 1" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-5 sm:p-6 pt-0 border-t-2 border-dashed border-black/10 animate-fade-in">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   // Load individual preferences & role
@@ -89,6 +116,9 @@ export default function App() {
 
   // Control custom Settle Up confirmation modal
   const [showSettleConfirm, setShowSettleConfirm] = useState(false);
+
+  // Active Tab state
+  const [activeTab, setActiveTab] = useState<"home" | "history" | "settings">("home");
 
 
   // Persist preferences locally
@@ -535,7 +565,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 pt-8 relative z-10 space-y-8">
         
         {/* Header Hero Area */}
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between border-b-4 border-black pb-6 gap-4">
+        <header className="flex flex-col md:flex-row md:items-center md:justify-between pb-4 gap-4">
           <div className="flex items-center gap-3">
             <img
               src="/pwa-192x192.png"
@@ -552,12 +582,6 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 w-full md:w-auto">
-            <button
-              onClick={handleResetLedger}
-              className="px-4 py-2.5 bg-white hover:bg-zinc-50 text-zinc-800 text-xs font-black rounded-xl border-3 border-black cursor-pointer transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
-            >
-              重置账本 / Reset
-            </button>
             <div className="flex items-center gap-2 bg-white border-3 border-black rounded-full px-4 py-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] shrink-0">
               <div className="flex -space-x-2">
                 <div className="w-7 h-7 rounded-full border-2 border-black bg-amber-300 flex items-center justify-center text-[10px] font-black">
@@ -572,51 +596,94 @@ export default function App() {
           </div>
         </header>
 
-        {/* Budget visual panel (Component A) */}
-        <div className="bg-white border-4 border-black rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#FF6B6B]/10 flex items-center justify-center text-[#FF6B6B] border-3 border-black shadow-sm shrink-0">
-              <PiggyBank className="w-6 h-6 text-black" />
-            </div>
-            <div>
-              <span className="text-[10px] text-zinc-400 block font-mono font-black uppercase tracking-wider">
-                MONTHLY BUDGET PROGRESS
-              </span>
-              <h4 className="text-base font-black text-[#1A1A1A] mt-0.5">
-                共同开销预算进度: <span className="font-mono text-[#FF6B6B]">{preferences.currencySymbol} {totalSharedSpent.toFixed(2)}</span> / {preferences.currencySymbol} {preferences.monthlyBudget}
-              </h4>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="flex-grow max-w-md">
-            <div className="flex justify-between text-xs font-mono font-black text-zinc-500 mb-1.5">
-              <span>已用预算 {budgetPercentage.toFixed(0)}%</span>
-              <span>剩余预算 {preferences.currencySymbol} {Math.max(preferences.monthlyBudget - totalSharedSpent, 0).toFixed(2)}</span>
-            </div>
-            <div className="h-4 bg-zinc-100 rounded-full overflow-hidden p-[2px] border-3 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
-              <div
-                className={`h-full rounded-full transition-all duration-500 border-r-2 border-black ${
-                  budgetPercentage > 85 ? "bg-[#FF6B6B]" : "bg-lime-450 bg-[#4D96FF]"
-                }`}
-                style={{ width: `${budgetPercentage}%` }}
-              />
-            </div>
-          </div>
+        {/* Desktop Top Nav */}
+        <div className="hidden md:flex gap-4 border-b-4 border-black pb-4 mb-8">
+          <button onClick={() => setActiveTab('home')} className={`px-6 py-3 font-black rounded-xl border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] transition-all flex items-center gap-2 ${activeTab === 'home' ? 'bg-zinc-950 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-800'}`}>
+            <Home className="w-4 h-4" /> 首页 / Home
+          </button>
+          <button onClick={() => setActiveTab('history')} className={`px-6 py-3 font-black rounded-xl border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-zinc-950 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-800'}`}>
+            <List className="w-4 h-4" /> 历史 / History
+          </button>
+          <button onClick={() => setActiveTab('settings')} className={`px-6 py-3 font-black rounded-xl border-3 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-zinc-950 text-white' : 'bg-white hover:bg-zinc-50 text-zinc-800'}`}>
+            <Settings className="w-4 h-4" /> 设置 / Settings
+          </button>
         </div>
 
-        {/* Big Balance displaying splitting grid (Component B + Component C) */}
-        <BalanceCard
-          transactions={transactions}
-          preferences={preferences}
-          onSettleUp={() => setShowSettleConfirm(true)}
-        />
+        {/* Active Tab Content */}
+        {activeTab === 'home' && (
+          <div className="space-y-8 animate-fade-in">
+            {/* Budget visual panel (Component A) */}
+            <div className="bg-white border-4 border-black rounded-3xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[7px_7px_0px_0px_rgba(0,0,0,1)] transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#FF6B6B]/10 flex items-center justify-center text-[#FF6B6B] border-3 border-black shadow-sm shrink-0">
+                  <PiggyBank className="w-6 h-6 text-black" />
+                </div>
+                <div>
+                  <span className="text-[10px] text-zinc-400 block font-mono font-black uppercase tracking-wider">
+                    MONTHLY BUDGET PROGRESS
+                  </span>
+                  <h4 className="text-base font-black text-[#1A1A1A] mt-0.5">
+                    共同开销预算进度: <span className="font-mono text-[#FF6B6B]">{preferences.currencySymbol} {totalSharedSpent.toFixed(2)}</span> / {preferences.currencySymbol} {preferences.monthlyBudget}
+                  </h4>
+                </div>
+              </div>
 
-        {/* Structural grids - List & Form */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
-          
-          {/* Main columns: Transaction list */}
-          <div className="lg:col-span-2 space-y-8 animate-fade-in">
+              {/* Progress bar */}
+              <div className="flex-grow max-w-md w-full">
+                <div className="flex justify-between text-xs font-mono font-black text-zinc-500 mb-1.5">
+                  <span>已用预算 {budgetPercentage.toFixed(0)}%</span>
+                  <span>剩余预算 {preferences.currencySymbol} {Math.max(preferences.monthlyBudget - totalSharedSpent, 0).toFixed(2)}</span>
+                </div>
+                <div className="h-4 bg-zinc-100 rounded-full overflow-hidden p-[2px] border-3 border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 border-r-2 border-black ${
+                      budgetPercentage > 85 ? "bg-[#FF6B6B]" : "bg-[#4D96FF]"
+                    }`}
+                    style={{ width: `${budgetPercentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Big Balance displaying splitting grid (Component B + Component C) */}
+            <BalanceCard
+              transactions={transactions}
+              preferences={preferences}
+              onSettleUp={() => setShowSettleConfirm(true)}
+            />
+
+            {/* Structural grids - List & Form */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
+              <div className="lg:col-span-2 space-y-6">
+                <TransactionList
+                  limit={3}
+                  hideFilters={true}
+                  transactions={transactions}
+                  preferences={preferences}
+                  onDeleteTransaction={handleDeleteTransaction}
+                />
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className="w-full py-4 bg-white border-3 border-black rounded-2xl font-black text-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-[2px] active:shadow-[0px_0px_0px_0px_rgba(0,0,0,1)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <List className="w-4 h-4" />
+                  查看全部历史记录
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Quick manual input form (Component D) */}
+                <ManualInput
+                  preferences={preferences}
+                  onAddTransaction={handleAddTransaction}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
             <TransactionList
               transactions={transactions}
               preferences={preferences}
@@ -631,48 +698,53 @@ export default function App() {
               onClear={handleClearDeleted}
             />
           </div>
+        )}
 
-          {/* Right sidebar section containing Manual input, Preferences, and Warm tip */}
-          <div className="space-y-6">
-            
-            {/* Quick manual input form (Component D) */}
-            <ManualInput
-              preferences={preferences}
-              onAddTransaction={handleAddTransaction}
-            />
+        {activeTab === 'settings' && (
+          <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+            <AccordionCard title="个人与账本配置" icon={Settings} defaultOpen={true}>
+              <PreferencesPanel
+                preferences={preferences}
+                currentUserRole={currentUserRole}
+                onUserRoleChange={setCurrentUserRole}
+                userAName={userAName}
+                userBName={userBName}
+                onUpdatePreferences={handleUpdatePreferences}
+              />
+            </AccordionCard>
 
-            {/* Profiles panel */}
-            <PreferencesPanel
-              preferences={preferences}
-              currentUserRole={currentUserRole}
-              onUserRoleChange={setCurrentUserRole}
-              userAName={userAName}
-              userBName={userBName}
-              onUpdatePreferences={handleUpdatePreferences}
-            />
+            <AccordionCard title="均摊温馨贴士 (Smart Rule Summary)" icon={Smile} defaultOpen={false}>
+              <div className="space-y-3 pt-2">
+                <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                  1. 默认平摊 (<span className="font-bold text-zinc-700">均摊50/50</span>) 的项目中，由其中一人付款。对方会产生 50% 的欠款。
+                </p>
+                <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                  2. 代垫 (<span className="font-bold text-zinc-700">全额垫付</span>) 的项目中，其中一方付款并全额由对方独立承担。对方会产生 100% 的欠款。
+                </p>
+                <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                  3. “结账/Settle Up” 会抵消所有人的消费欠款并保持均衡，并在清单中产生一条结清记录。
+                </p>
+              </div>
+            </AccordionCard>
 
-            {/* Informational card */}
-            <div className="bento-card-gray p-6 space-y-3 border border-zinc-200 bg-zinc-50">
-              <span className="text-xs font-mono font-black text-zinc-650 flex items-center gap-1">
-                <Smile className="w-3.5 h-3.5 text-[#FF6B6B]" /> 均摊温馨贴士 (Smart Rule Summary)
-              </span>
-              <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                1. 默认平摊 (<span className="font-bold text-zinc-700">均摊50/50</span>) 的项目中，由其中一人付款。对方会产生 50% 的欠款。
-              </p>
-              <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                2. 代垫 (<span className="font-bold text-zinc-700">全额垫付</span>) 的项目中，其中一方付款并全额由对方独立承担。对方会产生 100% 的欠款。
-              </p>
-              <p className="text-xs text-zinc-500 leading-relaxed font-medium">
-                3. “结账/Settle Up” 会抵消所有人的消费欠款并保持均衡，并在清单中产生一条结清记录。
-              </p>
-            </div>
-
+            <AccordionCard title="危险操作 / Danger Zone" icon={Trash2} defaultOpen={false}>
+              <div className="space-y-4 pt-2">
+                <p className="text-xs text-red-500 font-bold">
+                  这将清空本地所有缓存并重置页面状态。由于云端数据由您掌控，如果您使用的是共用数据库，可能还需要手动去 Supabase 清理数据。
+                </p>
+                <button
+                  onClick={handleResetLedger}
+                  className="w-full py-3.5 bg-red-500 hover:bg-red-600 text-white font-black text-xs rounded-xl border-2 border-black cursor-pointer transition-all shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,0.5)] flex justify-center items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" /> 重置账本 / Reset All Data
+                </button>
+              </div>
+            </AccordionCard>
           </div>
-
-        </div>
+        )}
 
         {/* Footer info */}
-        <footer className="pt-10 border-t border-zinc-200 flex flex-col sm:flex-row sm:items-center sm:justify-between text-zinc-400 gap-4">
+        <footer className="pt-10 pb-8 border-t border-zinc-200 flex flex-col sm:flex-row sm:items-center sm:justify-between text-zinc-400 gap-4">
           <p className="text-xs uppercase font-extrabold tracking-widest">© DuoLedger Smart Love-Finance Engine v1.02</p>
           <div className="flex gap-1.5">
             <div className="h-1.5 w-8 bg-zinc-900 rounded-full"></div>
@@ -681,6 +753,22 @@ export default function App() {
           </div>
         </footer>
 
+      </div>
+
+      {/* Mobile Bottom Nav */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-black z-50 flex justify-around p-2 pb-[env(safe-area-inset-bottom,0.5rem)] shadow-[0px_-4px_0px_0px_rgba(0,0,0,0.05)]">
+        <button onClick={() => setActiveTab('home')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'home' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+          <Home className={`w-5 h-5 ${activeTab === 'home' ? 'fill-zinc-900' : ''}`} />
+          <span className="text-[10px]">首页</span>
+        </button>
+        <button onClick={() => setActiveTab('history')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'history' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+          <List className={`w-5 h-5 ${activeTab === 'history' ? 'stroke-[3px]' : ''}`} />
+          <span className="text-[10px]">历史</span>
+        </button>
+        <button onClick={() => setActiveTab('settings')} className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 rounded-xl transition-all ${activeTab === 'settings' ? 'text-zinc-950 font-black' : 'text-zinc-400 font-bold hover:text-zinc-600'}`}>
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'stroke-[3px]' : ''}`} />
+          <span className="text-[10px]">设置</span>
+        </button>
       </div>
 
       {/* Settle Up Confirmation Modal Overlay */}

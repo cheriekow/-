@@ -45,20 +45,9 @@ export default function PreferencesPanel({
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  return (
     <>
-      {/* 1. Account Settings Card */}
-      <div className="bg-white border-4 border-black rounded-3xl p-5 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all relative overflow-hidden">
-        {/* Neo-brutalist floating heart background label */}
-        <div className="absolute top-4 right-4 text-[#FF6B6B]/10">
-          <Heart className="w-16 h-16 fill-[#FF6B6B]/5" />
-        </div>
-
-        <h3 className="text-xl font-black text-[#1A1A1A] flex items-center gap-2 mb-6 pb-4 border-b-2 border-black relative z-10">
-          <Settings className="w-5 h-5 text-[#FF6B6B]" />
-          情侣账本配置 / Profile Rules
-        </h3>
-
+      {/* 1. Account Settings Form */}
+      <div className="relative">
         <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
           {/* Identity Selection */}
           <div className="space-y-2 pb-4 border-b border-zinc-100">

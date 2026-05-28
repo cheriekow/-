@@ -7,6 +7,8 @@ interface TransactionListProps {
   transactions: Transaction[];
   preferences: CouplePreferences;
   onDeleteTransaction: (id: string) => void;
+  limit?: number;
+  hideFilters?: boolean;
 }
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -21,11 +23,13 @@ export default function TransactionList({
   transactions,
   preferences,
   onDeleteTransaction,
+  limit,
+  hideFilters
 }: TransactionListProps) {
   const [filter, setFilter] = useState<"all" | "me" | "partner" | "shared">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredTransactions = transactions
+  let filteredTransactions = transactions
     .filter((tx) => {
       if (filter === "me") return tx.payer === "me";
       if (filter === "partner") return tx.payer === "partner";
@@ -39,6 +43,10 @@ export default function TransactionList({
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  if (limit) {
+    filteredTransactions = filteredTransactions.slice(0, limit);
+  }
+
   return (
     <div className="space-y-6 bg-[#F1F3F5] rounded-[32px] p-4 sm:p-6 md:p-8 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
       
@@ -46,10 +54,11 @@ export default function TransactionList({
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 pb-4 border-b-2 border-black/10">
         <h4 className="text-xl font-black text-[#1A1A1A] flex items-center gap-2">
           <Layers className="w-5 h-5 text-[#FF6B6B]" />
-          账单明细历史 ({filteredTransactions.length})
+          {hideFilters ? "最近账单 (Recent)" : `账单明细历史 (${filteredTransactions.length})`}
         </h4>
 
         {/* Filters toggle - Styled with physical pressed look */}
+        {!hideFilters && (
         <div className="flex flex-wrap gap-1.5 sm:gap-2 shrink-0">
           <button
             onClick={() => setFilter("all")}
@@ -92,9 +101,11 @@ export default function TransactionList({
             平摊账
           </button>
         </div>
+        )}
       </div>
 
       {/* Search Bar - styled to match custom inputs */}
+      {!hideFilters && (
       <div className="relative">
         <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-505">
           <Search className="w-4 h-4 text-zinc-500" />
@@ -107,6 +118,7 @@ export default function TransactionList({
           className="w-full bg-white border-3 border-black rounded-xl pl-10 pr-4 py-3 text-sm font-bold text-[#1A1A1A] placeholder-zinc-400 focus:outline-none focus:ring-0 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
         />
       </div>
+      )}
 
       {/* Grid of Transaction Bento List Items */}
       {filteredTransactions.length === 0 ? (
